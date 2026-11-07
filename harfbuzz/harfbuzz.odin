@@ -81,6 +81,16 @@ Feature :: struct {
 	end:   c.uint,
 }
 
+// Style_Tag is what style_get_value reads of a face: from its variation axes if it has them, else from its OS/2 and post tables.
+Style_Tag :: enum u32 {
+	Italic       = 'i' << 24 | 't' << 16 | 'a' << 8 | 'l', // 0 or 1
+	Optical_Size = 'o' << 24 | 'p' << 16 | 's' << 8 | 'z',
+	Slant_Angle  = 's' << 24 | 'l' << 16 | 'n' << 8 | 't', // in degrees, negative leans right
+	Slant_Ratio  = 'S' << 24 | 'l' << 16 | 'n' << 8 | 't',
+	Width        = 'w' << 24 | 'd' << 16 | 't' << 8 | 'h', // a percentage of normal
+	Weight       = 'w' << 24 | 'g' << 16 | 'h' << 8 | 't', // 400 regular, 700 bold
+}
+
 Raster_Format :: enum c.int {
 	A8,
 	BGRA32, // premultiplied
@@ -128,6 +138,7 @@ foreign lib {
 	font_get_nominal_glyph :: proc(font: Font, unicode: Codepoint, glyph: ^Codepoint) -> Bool ---
 	font_get_glyph_extents :: proc(font: Font, glyph: Codepoint, extents: ^Glyph_Extents) -> Bool ---
 	font_get_glyph_h_advance :: proc(font: Font, glyph: Codepoint) -> Position ---
+	style_get_value :: proc(font: Font, style_tag: Style_Tag) -> f32 ---
 
 	// SHAPING
 	buffer_create :: proc() -> Buffer ---
@@ -136,6 +147,7 @@ foreign lib {
 	buffer_add_utf8 :: proc(buffer: Buffer, text: [^]u8, text_length: c.int, item_offset: c.uint, item_length: c.int) ---
 	buffer_set_direction :: proc(buffer: Buffer, direction: Direction) ---
 	buffer_guess_segment_properties :: proc(buffer: Buffer) ---
+	buffer_get_direction :: proc(buffer: Buffer) -> Direction ---
 	buffer_get_length :: proc(buffer: Buffer) -> c.uint ---
 	buffer_get_glyph_infos :: proc(buffer: Buffer, length: ^c.uint) -> [^]Glyph_Info ---
 	buffer_get_glyph_positions :: proc(buffer: Buffer, length: ^c.uint) -> [^]Glyph_Position ---

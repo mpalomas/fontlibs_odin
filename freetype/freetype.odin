@@ -237,4 +237,9 @@ foreign lib {
 
 	// Outline_Translate moves an outline, in the units of its points (26.6 pixels for a scaled glyph).
 	Outline_Translate :: proc(outline: ^Outline, x_offset, y_offset: Pos) ---
+	// Outline_Transform applies a 2x2 matrix (16.16): a shear makes a synthetic italic.
+	Outline_Transform :: proc(outline: ^Outline, transform: ^Matrix) ---
+	// Outline_EmboldenXY grows an outline by the strengths (26.6 pixels for a scaled glyph) in x and y, keeping its bottom left
+	// where it was: a synthetic bold.
+	Outline_EmboldenXY :: proc(outline: ^Outline, x_strength, y_strength: Pos) -> Error ---
 }
