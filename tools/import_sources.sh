@@ -57,12 +57,12 @@ cp "$FT/docs/FTL.TXT" "$REPO/upstream/freetype/docs/FTL.TXT"
 cp "$HB/COPYING" "$REPO/upstream/harfbuzz/COPYING"
 cp -R "$HB/src/OT" "$REPO/upstream/harfbuzz/src/OT"
 cp "$HB"/src/*.hh "$HB"/src/*.h "$REPO/upstream/harfbuzz/src/"
-for f in $(sed -n 's/^#include "\(.*\.cc\)"$/\1/p' "$REPO/upstream/config/owin_harfbuzz.cc"); do
+while IFS= read -r f; do
     case "$f" in
     OT/*) ;; # copied with the directory
     *) cp "$HB/src/$f" "$REPO/upstream/harfbuzz/src/$f" ;;
     esac
-done
+done < <(sed -n 's/^#include "\(.*\.cc\)"$/\1/p' "$REPO/upstream/config/owin_harfbuzz.cc")
 
 cat >"$REPO/upstream/release.env" <<EOF
 # The sources in upstream/, written by tools/import_sources.sh.

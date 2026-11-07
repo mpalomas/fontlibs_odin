@@ -1,0 +1,117 @@
+# Type-checks the bindings for every platform and lints the scripts; then builds FreeType and HarfBuzz from upstream/ on Linux,
+# macOS and Windows (tools/build_fontlibs.sh, tools/build_fontlibs.ps1), checks that the bindings' structs match the C headers
+# (tools/abi/check.sh), and runs the smoke tests against the libraries it built. The libraries are kept as artifacts.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-odin
+
+      # The packages refuse to compile without their libraries, and type-checking does not link: empty files stand in for them.
+      - name: Create placeholder libraries
+        run: |
+          mkdir -p lib/linux-x86_64 lib/macos-arm64 lib/windows-x86_64
+          touch lib/linux-x86_64/libfreetype.a lib/linux-x86_64/libharfbuzz.a
+          touch lib/macos-arm64/libfreetype.a lib/macos-arm64/libharfbuzz.a
+          touch lib/windows-x86_64/freetype.lib lib/windows-x86_64/harfbuzz.lib
+
+      - name: Type-check the packages, the tests and the tools
+        run: |
+          for target in linux_amd64 darwin_arm64 windows_amd64; do
+            echo "::group::$target"
+            odin check freetype -no-entry-point -target:$target
+            odin check harfbuzz -no-entry-point -target:$target
+            odin check tests -no-entry-point -target:$target
+            odin check tools/abi/odin -target:$target
+            odin check tools/spike -target:$target
+            echo "::endgroup::"
+          done
+
+      - name: Check the scripts
+        run: shellcheck --severity=warning tools/*.sh tools/abi/*.sh
+
+      # Write-Host is allowed: the scripts print progress for people, apart from their output.
+      - name: Check the PowerShell scripts
+        shell: pwsh
+        run: |
+          if (-not (Get-Module -ListAvailable PSScriptAnalyzer)) {
+            Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
+          }
+          $issues = Invoke-ScriptAnalyzer -Path tools -Recurse -Severity Warning, Error -ExcludeRule PSAvoidUsingWriteHost
+          $issues | Format-Table ScriptName, Line, RuleName, Message -AutoSize -Wrap | Out-String -Width 200
+          if ($issues) { exit 1 }
+
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            runner: ubuntu-24.04
+          - platform: macos-arm64
+            runner: macos-latest
+          - platform: windows-x86_64
+            runner: windows-2025-vs2026
+            cmake_generator: Visual Studio 18 2026
+    name: build (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    env:
+      CMAKE_GENERATOR: ${{ matrix.cmake_generator }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-odin
+
+      # macOS 13+, as the libraries of Dear ImGui.
+      - name: Build FreeType and HarfBuzz
+        if: runner.os != 'Windows'
+        run: |
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            export MACOSX_DEPLOYMENT_TARGET=13.0
+          fi
+          tools/build_fontlibs.sh
+
+      - name: Build FreeType and HarfBuzz
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: tools/build_fontlibs.ps1
+
+      - name: Check the ABI of the bindings
+        run: tools/abi/check.sh
+
+      # Odin links the C runtime only: the tests link only if the libraries need no C++ runtime.
+      - name: Run the smoke tests
+        run: odin test tests -out:build/smoke_tests
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: libs-${{ matrix.platform }}
+          path: lib/${{ matrix.platform }}
+          if-no-files-found: error

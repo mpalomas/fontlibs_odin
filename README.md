@@ -11,11 +11,14 @@ Used as a collection: `-collection:fontlibs=deps/fontlibs_odin`, then `import "f
 
 ```sh
 tools/import_sources.sh FREETYPE_TARBALL HARFBUZZ_TARBALL   # only to update the pinned sources in upstream/
-tools/build_fontlibs.sh                                     # lib/<os>-<arch>/libfreetype.a and libharfbuzz.a
-odin run tools/spike -- <output directory>                  # the Phase 0 checks below
+tools/build_fontlibs.sh                                     # Linux, macOS: lib/<os>-<arch>/libfreetype.a and libharfbuzz.a
+tools/build_fontlibs.ps1                                    # Windows (PowerShell 7.4, CMake, Visual Studio): lib/windows-<arch>/freetype.lib and harfbuzz.lib
+tools/abi/check.sh                                          # the bindings' structs against the C headers
+odin test tests                                             # smoke tests: the pinned versions, loading, shaping, rasterizing
+odin run tools/spike -- <output directory>                  # the Phase 0 checks below (macOS font paths)
 ```
 
-Built on macOS arm64 only so far. The Linux path of the script is untested, and `build_fontlibs.ps1` (Windows) doesn't exist yet. The FreeType tarball's PGP signature was not checked (no `gpg` here): the pinned SHA-256 values in `tools/import_sources.sh` come from the downloads.
+The Windows build is CMakeLists.txt, with the conventions of imgui_odin's: MSVC, the static C runtime (`/MT`), no default library directives, no exceptions, RTTI or thread-safe statics. **Built by hand on macOS arm64 only.** `.github/workflows/ci.yml` builds on Linux x86_64, macOS arm64 and Windows x86_64, checks the ABI, runs the smoke tests and keeps the libraries as artifacts. The Linux and Windows builds had not been run when they were written. The FreeType tarball's PGP signature was not checked (no `gpg` here): the pinned SHA-256 values in `tools/import_sources.sh` come from the downloads.
 
 ## Phase 0 results (macOS 26, Apple clang, arm64)
 
@@ -36,7 +39,7 @@ Built on macOS arm64 only so far. The Linux path of the script is untested, and 
 - CBDT: no CBDT font was available (Noto's current build is COLRv1).
 - Apple's `flip` glyphs (sbix graphic type `flip`, which HarfBuzz doesn't handle).
 - Light hinting at 11 to 16 px next to native text on Windows and Linux.
-- Linux and Windows builds, and ABI layout checks of the hand-written structs against the C headers.
+- Linux and Windows builds (CI builds them), and the ABI check there: it passes on macOS (156 values).
 - Glyph upload timing on Dawn and wgpu-native.
 
 ## Licences
