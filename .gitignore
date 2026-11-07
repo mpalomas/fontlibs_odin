@@ -1,0 +1,10 @@
+# built by tools/build_fontlibs.sh
+lib/**/*.a
+lib/**/*.so
+lib/**/*.dylib
+lib/**/*.lib
+lib/**/*.dll
+/build/
+*.bin
+*.exe
+*.pdb
