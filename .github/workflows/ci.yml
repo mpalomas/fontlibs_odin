@@ -91,24 +91,28 @@ jobs:
 
       # macOS 13+, as the libraries of Dear ImGui.
       - name: Build FreeType and HarfBuzz
+        id: build_unix
         if: runner.os != 'Windows'
         run: |
           if [[ "$RUNNER_OS" == macOS ]]; then
             export MACOSX_DEPLOYMENT_TARGET=13.0
           fi
-          tools/build_fontlibs.sh
+          tools/ci_annotate.sh "Build" tools/build_fontlibs.sh
 
       - name: Build FreeType and HarfBuzz
+        id: build_windows
         if: runner.os == 'Windows'
-        shell: pwsh
-        run: tools/build_fontlibs.ps1
+        run: tools/ci_annotate.sh "Build" pwsh -File tools/build_fontlibs.ps1
 
+      # The checks and the tests run when the build did, whether or not the others passed: one run tells all.
       - name: Check the ABI of the bindings
-        run: tools/abi/check.sh
+        if: ${{ !cancelled() && steps.build_unix.outcome != 'failure' && steps.build_windows.outcome != 'failure' }}
+        run: tools/ci_annotate.sh "ABI check" tools/abi/check.sh
 
       # Odin links the C runtime only: the tests link only if the libraries need no C++ runtime.
       - name: Run the smoke tests
-        run: odin test tests -out:build/smoke_tests
+        if: ${{ !cancelled() && steps.build_unix.outcome != 'failure' && steps.build_windows.outcome != 'failure' }}
+        run: tools/ci_annotate.sh "Smoke tests" odin test tests -out:build/smoke_tests
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
