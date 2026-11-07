@@ -53,6 +53,8 @@ FT_FLAGS=(
 HB_FLAGS=(
     "${COMMON[@]}" -std=c++17 -fno-exceptions -fno-rtti -fno-threadsafe-statics -fvisibility-inlines-hidden
     -I"$HB" -I"$UP/config"
+    # HarfBuzz's mutex is a pthread one with this; without it, outside of macOS, it's a std::mutex, which needs the C++ runtime.
+    -DHAVE_PTHREAD
     '-DHB_EXTERN=__attribute__((visibility("default")))'
 )
 # CFLAGS and CXXFLAGS hold several flags.

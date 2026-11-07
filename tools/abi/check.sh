@@ -8,6 +8,9 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Odin wants the extension of an executable on Windows.
+EXE=""
+case "$(uname -s)" in MINGW* | MSYS* | CYGWIN*) EXE=".exe" ;; esac
 OUT="$REPO/build/abi"
 rm -rf "$OUT"
 mkdir -p "$OUT"
@@ -19,7 +22,7 @@ exe="$(find "$OUT/c" -type f \( -name abi_check -o -name abi_check.exe \) | head
 "$exe" >"$OUT/c.txt"
 
 # The Odin program imports the bindings, which need the libraries to exist but not to be linked: it calls nothing of them.
-odin build "$REPO/tools/abi/odin" -out:"$OUT/abi_odin" >/dev/null
+odin build "$REPO/tools/abi/odin" -out:"$OUT/abi_odin$EXE" >/dev/null
 odin_exe="$(find "$OUT" -maxdepth 1 -type f \( -name abi_odin -o -name abi_odin.exe \) | head -n 1)"
 [[ -n "$odin_exe" ]] || { echo "error: the Odin program was not built" >&2; exit 1; }
 "$odin_exe" >"$OUT/odin.txt"

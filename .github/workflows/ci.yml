@@ -77,11 +77,13 @@ jobs:
           - platform: windows-x86_64
             runner: windows-2025-vs2026
             cmake_generator: Visual Studio 18 2026
+            exe: .exe
     name: build (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     env:
       CMAKE_GENERATOR: ${{ matrix.cmake_generator }}
+      EXE: ${{ matrix.exe }} # Odin wants an executable's extension on Windows
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -112,7 +114,7 @@ jobs:
       # Odin links the C runtime only: the tests link only if the libraries need no C++ runtime.
       - name: Run the smoke tests
         if: ${{ !cancelled() && steps.build_unix.outcome != 'failure' && steps.build_windows.outcome != 'failure' }}
-        run: tools/ci_annotate.sh "Smoke tests" odin test tests -out:build/smoke_tests
+        run: tools/ci_annotate.sh "Smoke tests" odin test tests -out:build/smoke_tests$EXE
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
