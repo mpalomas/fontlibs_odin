@@ -6,7 +6,16 @@ import "core:c"
 
 @(private) OS :: "macos" when ODIN_OS == .Darwin else "linux" when ODIN_OS == .Linux else "windows" when ODIN_OS == .Windows else #panic("fontlibs: unsupported OS")
 @(private) ARCH :: "x86_64" when ODIN_ARCH == .amd64 else "arm64" when ODIN_ARCH == .arm64 else #panic("fontlibs: unsupported architecture")
-@(private) FILE :: "freetype.lib" when ODIN_OS == .Windows else "libfreetype.a"
+
+// Link the shared library, which holds FreeType and HarfBuzz both (libfontlibs.dylib or .so, fontlibs.dll through fontlibs.dll.lib),
+// instead of the static ones. Enable with -define:FONTLIBS_SHARED=true, for both packages.
+FONTLIBS_SHARED :: #config(FONTLIBS_SHARED, false)
+
+when FONTLIBS_SHARED {
+	@(private) FILE :: "fontlibs.dll.lib" when ODIN_OS == .Windows else "libfontlibs.dylib" when ODIN_OS == .Darwin else "libfontlibs.so"
+} else {
+	@(private) FILE :: "freetype.lib" when ODIN_OS == .Windows else "libfreetype.a"
+}
 
 // Path of the library, relative to this directory. Override with -define:FREETYPE_LIB=<path>.
 FREETYPE_LIB :: #config(FREETYPE_LIB, "../lib/" + OS + "-" + ARCH + "/" + FILE)

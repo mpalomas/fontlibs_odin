@@ -1,5 +1,35 @@
 // The HarfBuzz sources this repository builds, as one translation unit: harfbuzz.cc without the platform shapers (CoreText, DirectWrite,
 // GDI, Uniscribe, FreeType, GLib, Graphite, WASM), plus the raster library. Written from harfbuzz.cc of the pinned release.
+//
+// Features this build leaves out, set here so that every platform and both library kinds are built the same: what only shaping
+// for subsetting, debugging, environment variables, files, vertical text, the math table, glyph names and the deprecated API
+// need. Kept: OpenType and AAT layout, variations, styles, colour (COLR, bitmaps, paint), drawing, and the legacy kern table.
+// HB_OPTIMIZE_SIZE picks the smaller code where HarfBuzz has two. The macros are those of HB_LEAN that these libraries can do
+// without; HB_LEAN itself also removes variations, styles and colour.
+#ifndef NDEBUG
+#define NDEBUG
+#endif
+#define HB_OPTIMIZE_SIZE
+#define HB_DISABLE_DEPRECATED
+#define HB_NO_ATEXIT
+#define HB_NO_BUFFER_MESSAGE
+#define HB_NO_BUFFER_SERIALIZE
+#define HB_NO_BUFFER_VERIFY
+#define HB_NO_ERRNO
+#define HB_NO_GETENV
+#define HB_NO_SETLOCALE
+#define HB_NO_MMAP
+#define HB_NO_OPEN
+#define HB_NO_FACE_COLLECT_UNICODES
+#define HB_NO_LAYOUT_COLLECT_GLYPHS
+#define HB_NO_LAYOUT_RARELY_USED
+#define HB_NO_LAYOUT_UNUSED
+#define HB_NO_MATH
+#define HB_NO_META
+#define HB_NO_VERTICAL
+#define HB_NO_OT_FONT_GLYPH_NAMES
+#define HB_NO_SUBSET_DEPEND
+
 #include "OT/Var/VARC/VARC.cc"
 #include "hb-aat-layout.cc"
 #include "hb-aat-map.cc"

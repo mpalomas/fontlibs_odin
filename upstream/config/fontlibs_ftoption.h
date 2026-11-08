@@ -109,7 +109,7 @@ FT_BEGIN_HEADER
    * ```
    *
    */
-#define FT_CONFIG_OPTION_ENVIRONMENT_PROPERTIES
+/* #define FT_CONFIG_OPTION_ENVIRONMENT_PROPERTIES */  /* fontlibs: off */
 
 
   /**************************************************************************
@@ -389,7 +389,7 @@ FT_BEGIN_HEADER
    *   in your 'psnames' module.  The Type~1 driver will not be able to
    *   synthesize a Unicode charmap out of the glyphs found in the fonts.
    */
-#define FT_CONFIG_OPTION_ADOBE_GLYPH_LIST
+/* #define FT_CONFIG_OPTION_ADOBE_GLYPH_LIST */  /* fontlibs: off */
 
 
   /**************************************************************************
@@ -621,7 +621,7 @@ FT_BEGIN_HEADER
    * outlines (from the 'COLR'/'CPAL' tables) in all formats using the 'sfnt'
    * module (namely TrueType~& OpenType).
    */
-#define TT_CONFIG_OPTION_COLOR_LAYERS
+/* #define TT_CONFIG_OPTION_COLOR_LAYERS */  /* fontlibs: off */
 
 
   /**************************************************************************
@@ -650,7 +650,7 @@ FT_BEGIN_HEADER
    * Accessing SFNT names is done through the functions declared in
    * `ftsnames.h`.
    */
-#define TT_CONFIG_OPTION_SFNT_NAMES
+/* #define TT_CONFIG_OPTION_SFNT_NAMES */  /* fontlibs: off */
 
 
   /**************************************************************************
@@ -801,7 +801,7 @@ FT_BEGIN_HEADER
    *
    * for more details.
    */
-#define TT_CONFIG_OPTION_BDF
+/* #define TT_CONFIG_OPTION_BDF */  /* fontlibs: off */
 
 
   /**************************************************************************

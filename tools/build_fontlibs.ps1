@@ -1,9 +1,10 @@
 #Requires -Version 7.4
 <#
-Builds FreeType and HarfBuzz from upstream/ into lib/windows-<arch>/: freetype.lib and harfbuzz.lib (static). Windows only:
-Linux and macOS use tools/build_fontlibs.sh.
+Builds FreeType and HarfBuzz from upstream/ into lib/windows-<arch>/: freetype.lib and harfbuzz.lib (static), and fontlibs.dll with
+its import library fontlibs.dll.lib (shared: one DLL with the API of both). Windows only: Linux and macOS use
+tools/build_fontlibs.sh.
 
-Usage: tools/build_fontlibs.ps1
+Usage: tools/build_fontlibs.ps1 [static|shared|all]   (default: all)
 
 Builds CMakeLists.txt with CMake, which finds Visual Studio itself: the newest installed by default (Visual Studio 2026, or its
 Build Tools), no developer prompt needed. See CMakeLists.txt for the build.
@@ -11,6 +12,11 @@ Environment:
   CMAKE_GENERATOR  e.g. "Visual Studio 18 2026" to require that version, or Ninja (from a developer prompt)
   CFLAGS, CXXFLAGS Extra compiler flags
 #>
+param(
+    [ValidateSet('static', 'shared', 'all')]
+    [string]$Linkage = 'all'
+)
+
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
 
@@ -27,7 +33,11 @@ $platform = "windows-$arch"
 $libDir = Join-Path $Repo "lib/$platform"
 $buildDir = Join-Path $Repo "build/$platform"
 
-$configure = @('-S', $Repo, '-B', $buildDir)
+$configure = @(
+    '-S', $Repo, '-B', $buildDir,
+    "-DFONTLIBS_STATIC=$($Linkage -ne 'shared' ? 'ON' : 'OFF')",
+    "-DFONTLIBS_SHARED=$($Linkage -ne 'static' ? 'ON' : 'OFF')"
+)
 # Visual Studio generators take the architecture as a platform and build the --config below. The others (Ninja) take the
 # architecture from the developer prompt, and the configuration here.
 if (-not $env:CMAKE_GENERATOR -or $env:CMAKE_GENERATOR -like 'Visual Studio*') {
@@ -43,7 +53,9 @@ Remove-Item -Recurse -Force $buildDir -ErrorAction SilentlyContinue
 cmake @configure
 cmake --build $buildDir --config Release --parallel
 
-$files = 'freetype.lib', 'harfbuzz.lib'
+$files = @()
+if ($Linkage -ne 'shared') { $files += 'freetype.lib', 'harfbuzz.lib' }
+if ($Linkage -ne 'static') { $files += 'fontlibs.dll', 'fontlibs.dll.lib' }
 New-Item -ItemType Directory -Force $libDir | Out-Null
 foreach ($f in $files) { Remove-Item -Force (Join-Path $libDir $f) -ErrorAction SilentlyContinue }
 cmake --install $buildDir --config Release --prefix $libDir
@@ -51,4 +63,4 @@ foreach ($f in $files) {
     if (-not (Test-Path (Join-Path $libDir $f))) { throw "the build made no $f" }
 }
 Write-Host "Built in lib/$platform/:"
-Get-ChildItem $libDir -Include 'freetype.lib', 'harfbuzz.lib' -Recurse | Format-Table Name, Length -AutoSize | Out-Host
+Get-ChildItem $libDir | Format-Table Name, Length -AutoSize | Out-Host

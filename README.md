@@ -2,8 +2,8 @@
 
 [FreeType](https://freetype.org) and [HarfBuzz](https://harfbuzz.github.io) for Odin: pinned sources, static libraries built by the scripts here, and hand-written bindings for the part of each library that text rendering needs. Only a subset of each is bound and built:
 
-- **FreeType 2.15.0:** TrueType and CFF fonts (also in OpenType and collection files), the auto-hinter, the smooth rasterizer. No zlib, PNG or other formats. About 0.6 MB.
-- **HarfBuzz 15.1.0:** the shaper (OpenType and AAT), and the raster library (outlines to A8, COLRv0 and COLRv1 color glyphs to BGRA32). No libpng, no platform shapers (CoreText, DirectWrite, ...). About 2 MB.
+- **FreeType 2.15.0:** TrueType and CFF fonts (also in OpenType and collection files), the auto-hinter, the smooth rasterizer. No zlib, PNG or other formats. About 0.5 MB.
+- **HarfBuzz 15.1.0:** the shaper (OpenType and AAT), and the raster library (outlines to A8, COLRv0 and COLRv1 color glyphs to BGRA32). No libpng, no platform shapers (CoreText, DirectWrite, ...). About 1.6 MB.
 
 Used as a collection: `-collection:fontlibs=<path to this directory>`, then
 
@@ -12,7 +12,7 @@ import ft "fontlibs:freetype"
 import hb "fontlibs:harfbuzz"
 ```
 
-The C prefixes are stripped (`ft.Load_Glyph`, `hb.shape`). Link directives find the libraries in `lib/<os>-<arch>/`.
+The C prefixes are stripped (`ft.Load_Glyph`, `hb.shape`). Link directives find the libraries in `lib/<os>-<arch>/`. They are static by default. `-define:FONTLIBS_SHARED=true` links the shared library instead (`libfontlibs.dylib`, `libfontlibs.so`, or `fontlibs.dll` through `fontlibs.dll.lib`): one library with the API of both FreeType and HarfBuzz. A program finds it through its rpath, which Odin sets to the program's own directory, or on Windows next to the DLL; copy the library beside the program, or build the program into `lib/<os>-<arch>/`.
 
 ## What is bound
 
@@ -26,18 +26,22 @@ More can be added: the files are plain `foreign` blocks. The struct layouts are 
 ## Building
 
 ```sh
-tools/build_fontlibs.sh      # Linux, macOS: lib/<os>-<arch>/libfreetype.a and libharfbuzz.a (needs a C and a C++ compiler)
-tools/build_fontlibs.ps1     # Windows (PowerShell 7.4, CMake, Visual Studio): lib/windows-<arch>/freetype.lib and harfbuzz.lib
+tools/build_fontlibs.sh      # Linux, macOS: lib/<os>-<arch>/libfreetype.a, libharfbuzz.a and libfontlibs.dylib or .so (needs a C and a C++ compiler)
+tools/build_fontlibs.sh static   # or: shared
+tools/build_fontlibs.ps1     # Windows (PowerShell 7.4, CMake, Visual Studio): lib/windows-<arch>/freetype.lib, harfbuzz.lib, fontlibs.dll and fontlibs.dll.lib
+tools/build_fontlibs.ps1 shared  # or: static
 tools/abi/check.sh           # the bindings' structs and constants against the C headers
 odin test tests              # smoke tests: the pinned versions, loading, shaping, rasterizing
 tools/import_sources.sh FREETYPE_TARBALL HARFBUZZ_TARBALL   # only to update the pinned sources in upstream/
 ```
 
-FreeType is built with `upstream/config/fontlibs_ftoption.h` and `fontlibs_ftmodule.h`, HarfBuzz from `upstream/config/fontlibs_harfbuzz.cc`, a single translation unit. Both are compiled position-independent with `-ffunction-sections` and `-fdata-sections`, so a program's linker drops what it doesn't use. HarfBuzz needs no C++ runtime (no exceptions, RTTI or thread-safe statics; the Unix script checks the undefined symbols, and the pthread mutex is selected with `-DHAVE_PTHREAD`). The Windows build is `CMakeLists.txt`: MSVC, the static C runtime (`/MT`), no default library directives.
+FreeType is built with `upstream/config/fontlibs_ftoption.h` and `fontlibs_ftmodule.h`, HarfBuzz from `upstream/config/fontlibs_harfbuzz.cc`, a single translation unit. The objects are compiled once, position-independent, with `-ffunction-sections` and `-fdata-sections`, so a program's linker drops what it doesn't use, and serve both the static and the shared library. HarfBuzz needs no C++ runtime (no exceptions, RTTI or thread-safe statics; the Unix script checks the undefined symbols, and the pthread mutex is selected with `-DHAVE_PTHREAD`), so the shared library is linked with the C compiler and needs the C library only. The Windows build is `CMakeLists.txt`: MSVC, the static C runtime (`/MT`, so the DLL needs no Visual C++ redistributable), no default library directives in the static libraries.
+
+**Built for size:** `-Os` (`/O1` with MSVC) and `NDEBUG`. FreeType's options leave out what text rendering doesn't use: its own colour layers (HarfBuzz paints COLR), name and BDF tables, the glyph name list and the `FREETYPE_PROPERTIES` environment variable; TrueType bytecode hinting stays. HarfBuzz leaves out, with the `HB_NO_*` macros at the top of `fontlibs_harfbuzz.cc`, what only subsetting, debugging, files, vertical text, the math table and glyph names need, and the deprecated API; OpenType and AAT layout, variations, styles, colour and drawing stay. On macOS arm64 this took the libraries from 650 KB (FreeType) and 2.08 MB (HarfBuzz) to 484 KB and 1.6 MB, and an application that links them about 325 KB smaller. Shaping, glyph bitmaps and colour glyphs of six real fonts were byte for byte the same before and after.
 
 ## What works
 
-Built and tested in `.github/workflows/ci.yml` on **Linux x86_64, macOS arm64 and Windows x86_64**: the libraries build, the ABI check passes (156 values: struct sizes, field offsets and enum constants), and the seven smoke tests pass (the library versions, loading a face and rasterizing a glyph with FreeType, shaping with a kern table, HarfBuzz's rasterizer against FreeType's, embolden and shear, text direction and a face's style). The built libraries are kept as artifacts of each run.
+Built and tested in `.github/workflows/ci.yml` on **Linux x86_64, macOS arm64 and Windows x86_64**, as static and as shared libraries: the libraries build, the ABI check passes (156 values: struct sizes, field offsets and enum constants), and the seven smoke tests pass, against each kind (the library versions, loading a face and rasterizing a glyph with FreeType, shaping with a kern table, HarfBuzz's rasterizer against FreeType's, embolden and shear, text direction and a face's style). The built libraries are kept as artifacts of each run.
 
 Tried by hand on macOS arm64 with real fonts:
 
@@ -56,6 +60,7 @@ Tried by hand on macOS arm64 with real fonts:
 - **CBDT** bitmap fonts: no CBDT font was at hand. They go through the same `ot_color_glyph_reference_png` path as sbix, which works.
 - **Apple's `flip` glyphs** (an sbix graphic type): HarfBuzz doesn't handle them, so such a glyph has no PNG.
 - **Real fonts on Linux and Windows:** the CI there runs only the smoke tests, on a font of simple shapes. Light hinting at 11 to 16 px next to native text has not been looked at on either.
+- **The size settings on Windows and Linux:** `/O1` and the trimmed configuration build and pass the smoke tests in CI, but their effect on size was measured on macOS arm64 only.
 - **Other targets:** Linux arm64, macOS x86_64 and Windows arm64 are not built by CI. The scripts name the output directory after the machine's architecture and should work, but have not been run.
 - **Variable fonts:** `font_set_variations` is bound, but nothing here exercises it.
 - The FreeType tarball's PGP signature was not checked when the sources were imported; the pinned SHA-256 values in `upstream/release.env` and `tools/import_sources.sh` come from the downloads.

@@ -38,6 +38,7 @@ jobs:
           touch lib/linux-x86_64/libfreetype.a lib/linux-x86_64/libharfbuzz.a
           touch lib/macos-arm64/libfreetype.a lib/macos-arm64/libharfbuzz.a
           touch lib/windows-x86_64/freetype.lib lib/windows-x86_64/harfbuzz.lib
+          touch lib/linux-x86_64/libfontlibs.so lib/macos-arm64/libfontlibs.dylib lib/windows-x86_64/fontlibs.dll.lib
 
       - name: Type-check the packages, the tests and the tools
         run: |
@@ -47,6 +48,9 @@ jobs:
             odin check harfbuzz -no-entry-point -target:$target
             odin check tests -no-entry-point -target:$target
             odin check tools/abi/odin -target:$target
+            odin check freetype -no-entry-point -target:$target -define:FONTLIBS_SHARED=true
+            odin check harfbuzz -no-entry-point -target:$target -define:FONTLIBS_SHARED=true
+            odin check tests -no-entry-point -target:$target -define:FONTLIBS_SHARED=true
             echo "::endgroup::"
           done
 
@@ -114,6 +118,13 @@ jobs:
       - name: Run the smoke tests
         if: ${{ !cancelled() && steps.build_unix.outcome != 'failure' && steps.build_windows.outcome != 'failure' }}
         run: tools/ci_annotate.sh "Smoke tests" odin test tests -out:build/smoke_tests$EXE
+
+      # With the shared library, which the test finds next to it: through its rpath, or on Windows beside the DLL. odin test deletes
+      # the executable afterwards.
+      - name: Run the smoke tests with the shared library
+        if: ${{ !cancelled() && steps.build_unix.outcome != 'failure' && steps.build_windows.outcome != 'failure' }}
+        run: |
+          tools/ci_annotate.sh "Smoke tests (shared)" odin test tests -define:FONTLIBS_SHARED=true -out:lib/${{ matrix.platform }}/smoke_tests_shared$EXE
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
