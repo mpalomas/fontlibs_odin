@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Imports the FreeType and HarfBuzz sources this repository builds into upstream/, from the release tarballs, and writes the pin
-# (upstream/release.env). Only what the build needs is kept, so the repository stays small.
+# (upstream/release.env, which loses the RELEASE_TAG that .github/workflows/build-fontlibs.yml pins: the prebuilt libraries are
+# of the old sources). Only what the build needs is kept, so the repository stays small.
 #
 # Usage: tools/import_sources.sh FREETYPE_TARBALL HARFBUZZ_TARBALL
 #

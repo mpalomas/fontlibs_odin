@@ -39,6 +39,16 @@ FreeType is built with `upstream/config/fontlibs_ftoption.h` and `fontlibs_ftmod
 
 **Built for size:** `-Os` (`/O1` with MSVC) and `NDEBUG`. FreeType's options leave out what text rendering doesn't use: its own colour layers (HarfBuzz paints COLR), name and BDF tables, the glyph name list and the `FREETYPE_PROPERTIES` environment variable; TrueType bytecode hinting stays. HarfBuzz leaves out, with the `HB_NO_*` macros at the top of `fontlibs_harfbuzz.cc`, what only subsetting, debugging, files, vertical text, the math table and glyph names need, and the deprecated API; OpenType and AAT layout, variations, styles, colour and drawing stay. On macOS arm64 this took the libraries from 650 KB (FreeType) and 2.08 MB (HarfBuzz) to 484 KB and 1.6 MB, and an application that links them about 325 KB smaller. Shaping, glyph bitmaps and colour glyphs of six real fonts were byte for byte the same before and after.
 
+## Prebuilt libraries
+
+The workflow `.github/workflows/build-fontlibs.yml` ("Actions", "Build FreeType and HarfBuzz", "Run workflow") builds the static and shared libraries for Linux x86_64 (on Ubuntu 22.04, so they need an older glibc), macOS arm64 (macOS 13 and later) and Windows x86_64, checks them (ABI check, smoke tests with each kind), and, with `publish` on, creates the release `fontlibs-ft<FreeType version>-hb<HarfBuzz version>` (`-r2` and so on with the `revision` input, for another build of the same versions). The release holds `fontlibs-<platform>.tar.gz` for each platform, the configuration they were built with, the versions of the sources, and `SHA256SUMS`. It then opens a pull request that adds the release's tag as `RELEASE_TAG` to `upstream/release.env`. That needs Settings, Actions, General, "Allow GitHub Actions to create and approve pull requests"; GitHub does not run CI on a pull request opened by an action, so close and reopen it to run it.
+
+```sh
+tools/fetch_fontlibs_libs.sh [PLATFORM...]    # tools/fetch_fontlibs_libs.ps1 on Windows
+```
+
+downloads the libraries of the pinned release into `lib/<os>-<arch>/`, after checking the downloads against `SHA256SUMS` and the release's configuration and versions against the committed ones (it refuses libraries that were built from other sources or with another configuration: build those with `tools/build_fontlibs.sh`). It uses `gh` when that is installed and logged in, else `curl`. Importing new sources with `tools/import_sources.sh` drops the pin: run the workflow again for them.
+
 ## What works
 
 Built and tested in `.github/workflows/ci.yml` on **Linux x86_64, macOS arm64 and Windows x86_64**, as static and as shared libraries: the libraries build, the ABI check passes (156 values: struct sizes, field offsets and enum constants), and the seven smoke tests pass, against each kind (the library versions, loading a face and rasterizing a glyph with FreeType, shaping with a kern table, HarfBuzz's rasterizer against FreeType's, embolden and shear, text direction and a face's style). The built libraries are kept as artifacts of each run.

@@ -1,0 +1,246 @@
+# Builds FreeType and HarfBuzz from the sources in upstream/, static and shared, for Linux, macOS and Windows, and checks the
+# libraries (ABI check, smoke tests, static and shared). With `publish`, then creates the release
+# fontlibs-ft<FreeType version>-hb<HarfBuzz version> with the libraries, and opens a pull request that pins the release in
+# upstream/release.env (read by tools/fetch_fontlibs_libs.sh and .ps1).
+#
+# Opening the pull request requires Settings > Actions > General > "Allow GitHub Actions to create and approve pull requests".
+name: Build FreeType and HarfBuzz
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Build revision, for a new release of the same versions (another configuration or build); 1 for none
+        default: '1'
+      publish:
+        description: Publish a release and open a pull request that pins it
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      revision:
+        type: string
+        default: '1'
+      publish:
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      freetype_version: ${{ steps.resolve.outputs.FREETYPE_VERSION }}
+      harfbuzz_version: ${{ steps.resolve.outputs.HARFBUZZ_VERSION }}
+      release_tag: ${{ steps.resolve.outputs.RELEASE_TAG }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Resolve the versions
+        id: resolve
+        env:
+          REVISION: ${{ inputs.revision }}
+        run: |
+          [[ "$REVISION" =~ ^[1-9][0-9]*$ ]] || { echo "::error::revision must be a positive number"; exit 1; }
+          freetype="$(sed -n 's/^FREETYPE_VERSION=//p' upstream/release.env)"
+          harfbuzz="$(sed -n 's/^HARFBUZZ_VERSION=//p' upstream/release.env)"
+          [[ -n "$freetype" && -n "$harfbuzz" ]] || { echo "::error::upstream/release.env has no FREETYPE_VERSION and HARFBUZZ_VERSION"; exit 1; }
+          release="fontlibs-ft$freetype-hb$harfbuzz"
+          if [[ "$REVISION" != 1 ]]; then
+            release="$release-r$REVISION"
+          fi
+          { echo "FREETYPE_VERSION=$freetype"; echo "HARFBUZZ_VERSION=$harfbuzz"; echo "RELEASE_TAG=$release"; } | tee -a "$GITHUB_OUTPUT"
+
+  # Without Odin: Linux on the oldest runner, so the libraries need an older glibc. Windows with Visual Studio 2026
+  # (CMakeLists.txt), and PowerShell.
+  build:
+    needs: resolve
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            runner: ubuntu-22.04
+          - platform: macos-arm64
+            runner: macos-latest
+          - platform: windows-x86_64
+            runner: windows-2025-vs2026
+            cmake_generator: Visual Studio 18 2026
+    name: build (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    env:
+      CMAKE_GENERATOR: ${{ matrix.cmake_generator }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      # macOS: macOS 13+.
+      - name: Build FreeType and HarfBuzz
+        if: runner.os != 'Windows'
+        run: |
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            export MACOSX_DEPLOYMENT_TARGET=13.0
+          fi
+          tools/build_fontlibs.sh all
+
+      - name: Build FreeType and HarfBuzz
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: tools/build_fontlibs.ps1 all
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: build-${{ matrix.platform }}
+          path: lib/${{ matrix.platform }}
+          if-no-files-found: error
+
+  verify:
+    needs: [resolve, build]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            runner: ubuntu-24.04
+          - platform: macos-arm64
+            runner: macos-latest
+          - platform: windows-x86_64
+            runner: windows-2025-vs2026
+            exe: .exe
+    name: verify (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    env:
+      PLATFORM: ${{ matrix.platform }}
+      EXE: ${{ matrix.exe }} # Odin wants an executable's extension on Windows
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-odin
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: build-${{ matrix.platform }}
+          path: lib/${{ matrix.platform }}
+
+      - name: Check the ABI
+        run: tools/ci_annotate.sh "ABI check" tools/abi/check.sh
+
+      # The shared library is found next to the test, through its rpath, or on Windows beside the DLL. odin test deletes the
+      # executable afterwards.
+      - name: Run the smoke tests
+        run: |
+          tools/ci_annotate.sh "Smoke tests" odin test tests -out:build/smoke_tests$EXE
+          tools/ci_annotate.sh "Smoke tests (shared)" odin test tests -define:FONTLIBS_SHARED=true -out:lib/"$PLATFORM"/smoke_tests_shared$EXE
+
+      - name: Package the libraries
+        if: runner.os != 'Windows'
+        run: |
+          # No AppleDouble files from macOS tar.
+          COPYFILE_DISABLE=1 tar -czf "fontlibs-$PLATFORM.tar.gz" lib/"$PLATFORM"/libfreetype.a lib/"$PLATFORM"/libharfbuzz.a lib/"$PLATFORM"/libfontlibs.*
+          tar -tzvf "fontlibs-$PLATFORM.tar.gz"
+
+      # Windows' tar (bsdtar), with / in the paths.
+      - name: Package the libraries
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $dir = "lib/$env:PLATFORM"
+          tar -czf "fontlibs-$env:PLATFORM.tar.gz" "$dir/freetype.lib" "$dir/harfbuzz.lib" "$dir/fontlibs.dll" "$dir/fontlibs.dll.lib"
+          tar -tzvf "fontlibs-$env:PLATFORM.tar.gz"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: fontlibs-${{ matrix.platform }}.tar.gz
+          if-no-files-found: error
+
+  publish:
+    needs: [resolve, verify]
+    if: inputs.publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      FREETYPE_VERSION: ${{ needs.resolve.outputs.freetype_version }}
+      HARFBUZZ_VERSION: ${{ needs.resolve.outputs.harfbuzz_version }}
+      TAG: ${{ needs.resolve.outputs.release_tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      # With the token persisted, to push the pull request's branch.
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: release-*
+          path: ${{ runner.temp }}/assets
+          merge-multiple: true
+
+      # The configuration the libraries were built with, and the versions of the sources: tools/fetch_fontlibs_libs.sh checks that
+      # they are the committed ones.
+      - name: Create the release
+        run: |
+          assets="$RUNNER_TEMP/assets"
+          cp upstream/config/fontlibs_ftoption.h upstream/config/fontlibs_ftmodule.h upstream/config/fontlibs_harfbuzz.cc "$assets/"
+          grep -E '^(FREETYPE|HARFBUZZ)_' upstream/release.env > "$assets/sources.env"
+          (cd "$assets" && sha256sum fontlibs-*.tar.gz fontlibs_ftoption.h fontlibs_ftmodule.h fontlibs_harfbuzz.cc sources.env > SHA256SUMS && cat SHA256SUMS)
+          notes="FreeType $FREETYPE_VERSION (https://freetype.org) and HarfBuzz $HARFBUZZ_VERSION (https://github.com/harfbuzz/harfbuzz/releases/tag/$HARFBUZZ_VERSION), built from the sources in upstream/ with fontlibs_ftoption.h, fontlibs_ftmodule.h and fontlibs_harfbuzz.cc.
+
+          Static and shared libraries for Linux x86_64 (built on Ubuntu 22.04), macOS arm64 (macOS 13+) and Windows x86_64 (Visual Studio 2026, static C runtime), with no C++ runtime dependency. Download them with \`tools/fetch_fontlibs_libs.sh\` (\`tools/fetch_fontlibs_libs.ps1\` on Windows).
+
+          Built by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$assets"/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" "$assets"/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "FreeType $FREETYPE_VERSION and HarfBuzz $HARFBUZZ_VERSION" --notes "$notes"
+          fi
+
+      - name: Open a pull request that pins the release
+        run: |
+          sed -i -e '/^RELEASE_TAG=/d' -e '/^# The release whose libraries match/d' -e '/^# Written by .github.workflows.build-fontlibs.yml/d' upstream/release.env
+          printf '# The release whose libraries match these sources, downloaded by tools/fetch_fontlibs_libs.sh.\n# Written by .github/workflows/build-fontlibs.yml, and dropped when tools/import_sources.sh imports new sources.\nRELEASE_TAG=%s\n' "$TAG" >> upstream/release.env
+          if [[ -z "$(git status --porcelain)" ]]; then
+            echo "The pin is up to date"
+            exit 0
+          fi
+          git status --short
+
+          branch="fontlibs/$TAG"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add upstream/release.env
+          git commit -m "Pin the libraries of release $TAG" -m "FreeType $FREETYPE_VERSION and HarfBuzz $HARFBUZZ_VERSION."
+          git push --force origin "$branch"
+
+          if [[ -n "$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$branch" --state open --json number --jq '.[].number')" ]]; then
+            echo "The pull request for $branch exists already, its branch is updated"
+            exit 0
+          fi
+          body="Pins the release [$TAG]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$TAG), the libraries of FreeType $FREETYPE_VERSION and HarfBuzz $HARFBUZZ_VERSION, in upstream/release.env.
+
+          Generated by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID, which checked the ABI and ran the smoke tests against the static and the shared libraries on Linux, macOS and Windows.
+
+          Pull requests opened by GitHub Actions do not trigger CI: close and reopen this one to run it."
+          gh pr create --repo "$GITHUB_REPOSITORY" --base "$GITHUB_REF_NAME" --head "$branch" \
+            --title "Pin the libraries of release $TAG" --body "$body" || {
+            echo "::error::Cannot open the pull request. Enable Settings > Actions > General > 'Allow GitHub Actions to create and approve pull requests', or open it by hand from $branch."
+            exit 1
+          }
