@@ -47,7 +47,6 @@ jobs:
             odin check harfbuzz -no-entry-point -target:$target
             odin check tests -no-entry-point -target:$target
             odin check tools/abi/odin -target:$target
-            odin check tools/spike -target:$target
             echo "::endgroup::"
           done
 

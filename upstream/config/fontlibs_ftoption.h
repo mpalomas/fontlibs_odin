@@ -180,7 +180,7 @@ FT_BEGIN_HEADER
    *
    *   Define this macro if you want to enable this 'feature'.
    */
-/* #define FT_CONFIG_OPTION_USE_LZW */  /* Owin: off */
+/* #define FT_CONFIG_OPTION_USE_LZW */  /* fontlibs: off */
 
 
   /**************************************************************************
@@ -195,7 +195,7 @@ FT_BEGIN_HEADER
    *   Define this macro if you want to enable this 'feature'.  See also the
    *   macro `FT_CONFIG_OPTION_SYSTEM_ZLIB` below.
    */
-/* #define FT_CONFIG_OPTION_USE_ZLIB */  /* Owin: off */
+/* #define FT_CONFIG_OPTION_USE_ZLIB */  /* fontlibs: off */
 
 
   /**************************************************************************
@@ -402,7 +402,7 @@ FT_BEGIN_HEADER
    *
    *   Note that the 'FOND' resource isn't checked.
    */
-/* #define FT_CONFIG_OPTION_MAC_FONTS */  /* Owin: off */
+/* #define FT_CONFIG_OPTION_MAC_FONTS */  /* fontlibs: off */
 
 
   /**************************************************************************
@@ -422,7 +422,7 @@ FT_BEGIN_HEADER
    *   the `FT_CONFIG_OPTION_MAC_FONTS` option.
    */
 #ifdef FT_CONFIG_OPTION_MAC_FONTS
-/* #define FT_CONFIG_OPTION_GUESSING_EMBEDDED_RFORK */  /* Owin: off */
+/* #define FT_CONFIG_OPTION_GUESSING_EMBEDDED_RFORK */  /* fontlibs: off */
 #endif
 
 
@@ -434,7 +434,7 @@ FT_BEGIN_HEADER
    * incrementally as the document is parsed, such as the Ghostscript
    * interpreter for the PostScript language.
    */
-/* #define FT_CONFIG_OPTION_INCREMENTAL */  /* Owin: off */
+/* #define FT_CONFIG_OPTION_INCREMENTAL */  /* fontlibs: off */
 
 
   /**************************************************************************
@@ -581,7 +581,7 @@ FT_BEGIN_HEADER
    *
    *   More details on the hooks can be found in file `otsvg.h`.
    */
-/* #define FT_CONFIG_OPTION_SVG */  /* Owin: off */
+/* #define FT_CONFIG_OPTION_SVG */  /* fontlibs: off */
 
 
   /**************************************************************************

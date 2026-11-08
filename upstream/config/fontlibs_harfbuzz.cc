@@ -1,4 +1,4 @@
-// The HarfBuzz sources Owin builds, as one translation unit: harfbuzz.cc without the platform shapers (CoreText, DirectWrite,
+// The HarfBuzz sources this repository builds, as one translation unit: harfbuzz.cc without the platform shapers (CoreText, DirectWrite,
 // GDI, Uniscribe, FreeType, GLib, Graphite, WASM), plus the raster library. Written from harfbuzz.cc of the pinned release.
 #include "OT/Var/VARC/VARC.cc"
 #include "hb-aat-layout.cc"

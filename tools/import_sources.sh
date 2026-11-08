@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Imports the FreeType and HarfBuzz sources Owin builds into upstream/, from the release tarballs, and writes the pin
+# Imports the FreeType and HarfBuzz sources this repository builds into upstream/, from the release tarballs, and writes the pin
 # (upstream/release.env). Only what the build needs is kept, so the repository stays small.
 #
 # Usage: tools/import_sources.sh FREETYPE_TARBALL HARFBUZZ_TARBALL
@@ -52,7 +52,7 @@ done
 cp "$FT/LICENSE.TXT" "$REPO/upstream/freetype/LICENSE.TXT"
 cp "$FT/docs/FTL.TXT" "$REPO/upstream/freetype/docs/FTL.TXT"
 
-# HARFBUZZ: every header (the shaper includes more of them than it uses), and the sources config/owin_harfbuzz.cc includes: the
+# HARFBUZZ: every header (the shaper includes more of them than it uses), and the sources config/fontlibs_harfbuzz.cc includes: the
 # shaper and the raster library. Not the subsetter, the GPU library, or the platform shapers.
 cp "$HB/COPYING" "$REPO/upstream/harfbuzz/COPYING"
 cp -R "$HB/src/OT" "$REPO/upstream/harfbuzz/src/OT"
@@ -62,7 +62,7 @@ while IFS= read -r f; do
     OT/*) ;; # copied with the directory
     *) cp "$HB/src/$f" "$REPO/upstream/harfbuzz/src/$f" ;;
     esac
-done < <(sed -n 's/^#include "\(.*\.cc\)"$/\1/p' "$REPO/upstream/config/owin_harfbuzz.cc")
+done < <(sed -n 's/^#include "\(.*\.cc\)"$/\1/p' "$REPO/upstream/config/fontlibs_harfbuzz.cc")
 
 cat >"$REPO/upstream/release.env" <<EOF
 # The sources in upstream/, written by tools/import_sources.sh.

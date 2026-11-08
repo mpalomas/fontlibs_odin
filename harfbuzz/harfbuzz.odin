@@ -1,5 +1,5 @@
-// Bindings for the part of HarfBuzz 15.1 that Owin uses: shaping, colour glyph queries, and the CPU raster library (outlines to
-// A8, colour glyphs to BGRA32). Written by hand; tests/abi checks the struct layouts against the C headers.
+// Bindings for part of HarfBuzz 15.1: shaping, colour glyph queries, and the CPU raster library (outlines to
+// A8, colour glyphs to BGRA32). Written by hand; tools/abi/check.sh checks the struct layouts against the C headers.
 package harfbuzz
 
 import "core:c"

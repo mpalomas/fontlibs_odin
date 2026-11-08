@@ -10,6 +10,6 @@ target_include_directories(abi_check PRIVATE
 )
 target_compile_definitions(abi_check PRIVATE
     _CRT_SECURE_NO_WARNINGS
-    "FT_CONFIG_OPTIONS_H=\"owin_ftoption.h\""
-    "FT_CONFIG_MODULES_H=\"owin_ftmodule.h\""
+    "FT_CONFIG_OPTIONS_H=\"fontlibs_ftoption.h\""
+    "FT_CONFIG_MODULES_H=\"fontlibs_ftmodule.h\""
 )

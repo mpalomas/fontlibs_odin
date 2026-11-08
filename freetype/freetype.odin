@@ -1,5 +1,5 @@
-// Bindings for the part of FreeType 2.15 that Owin uses: loading faces from memory, sizes, variation axes, hinting, outlines and
-// bitmaps. Written by hand; tests/abi checks the struct layouts against the C headers.
+// Bindings for part of FreeType 2.15: loading faces from memory, sizes, glyph loading with hinting, outline
+// editing and rendering to bitmaps. Written by hand; tools/abi/check.sh checks the struct layouts against the C headers.
 package freetype
 
 import "core:c"

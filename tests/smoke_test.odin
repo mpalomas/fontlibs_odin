@@ -1,7 +1,7 @@
 package tests
 
 // Smoke tests: the libraries are the versions the bindings are for, and FreeType and HarfBuzz work through them on a font with
-// simple shapes (testdata/owin_test.ttf, made by Owin's tools/generate_test_fonts.py: 1000 units per em; glyph 2, the character A,
+// simple shapes (testdata/test.ttf, a 780 byte TrueType font built by hand: 1000 units per em; glyph 2, the character A,
 // is a square 100 to 700 units right of the pen and 0 to 700 up, advance 800; glyph 3, B, advance 800; a kern table moves B 100
 // units closer to a preceding A). At 10 pixels per em, A covers exactly 6 by 7 pixels.
 //
@@ -12,7 +12,7 @@ import "core:testing"
 import ft "../freetype"
 import hb "../harfbuzz"
 
-test_font := #load("testdata/owin_test.ttf")
+test_font := #load("testdata/test.ttf")
 
 @(test)
 freetype_is_the_pinned_version :: proc(t: ^testing.T) {
@@ -40,7 +40,7 @@ freetype_loads_the_face_and_rasterizes_a_glyph :: proc(t: ^testing.T) {
 	testing.expect_value(t, face.units_per_em, 1000)
 	testing.expect_value(t, face.num_glyphs, 5)
 	testing.expect_value(t, face.ascender, 800)
-	testing.expect_value(t, string(face.family_name), "Owin Test")
+	testing.expect_value(t, string(face.family_name), "Unit Test")
 
 	testing.expect_value(t, ft.Set_Pixel_Sizes(face, 0, 10), ft.OK)
 	index := ft.Get_Char_Index(face, 'A')

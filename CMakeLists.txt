@@ -2,8 +2,8 @@
 # named as the bindings import them. Run by tools/build_fontlibs.ps1, which installs them in lib/windows-<arch>/.
 # Linux and macOS use tools/build_fontlibs.sh, which builds the same sources the same way.
 #
-# FreeType is built with upstream/config/owin_ftoption.h and owin_ftmodule.h (TrueType and CFF fonts, the auto-hinter, the smooth
-# rasterizer; no zlib, PNG or other formats). HarfBuzz is built from upstream/config/owin_harfbuzz.cc: the shaper and the raster
+# FreeType is built with upstream/config/fontlibs_ftoption.h and fontlibs_ftmodule.h (TrueType and CFF fonts, the auto-hinter, the smooth
+# rasterizer; no zlib, PNG or other formats). HarfBuzz is built from upstream/config/fontlibs_harfbuzz.cc: the shaper and the raster
 # library, without the platform shapers, and with no libpng. No exceptions, RTTI or thread-safe statics, and the static C runtime
 # (/MT), which Odin programs link (libcmt): HarfBuzz needs no C++ runtime (its mutex is a Win32 critical section).
 cmake_minimum_required(VERSION 3.21)
@@ -43,14 +43,14 @@ target_include_directories(freetype PRIVATE "${UP}/config" "${FT}/include" "${FT
 target_compile_definitions(freetype PRIVATE
     FT2_BUILD_LIBRARY
     _CRT_SECURE_NO_WARNINGS
-    "FT_CONFIG_OPTIONS_H=\"owin_ftoption.h\""
-    "FT_CONFIG_MODULES_H=\"owin_ftmodule.h\""
+    "FT_CONFIG_OPTIONS_H=\"fontlibs_ftoption.h\""
+    "FT_CONFIG_MODULES_H=\"fontlibs_ftmodule.h\""
 )
 target_compile_options(freetype PRIVATE ${COMMON_OPTIONS})
 install(TARGETS freetype ARCHIVE DESTINATION .)
 
 # HARFBUZZ: one translation unit, which MSVC needs /bigobj for.
-add_library(harfbuzz STATIC "${UP}/config/owin_harfbuzz.cc")
+add_library(harfbuzz STATIC "${UP}/config/fontlibs_harfbuzz.cc")
 target_include_directories(harfbuzz PRIVATE "${HB}" "${UP}/config")
 target_compile_definitions(harfbuzz PRIVATE _CRT_SECURE_NO_WARNINGS _HAS_EXCEPTIONS=0)
 target_compile_options(harfbuzz PRIVATE ${COMMON_OPTIONS} /std:c++17 /Zc:__cplusplus /GR- /EHs-c- /Zc:threadSafeInit- /bigobj)

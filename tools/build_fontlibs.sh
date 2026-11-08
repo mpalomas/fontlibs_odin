@@ -3,9 +3,9 @@
 #
 # Usage: tools/build_fontlibs.sh
 #
-# FreeType is built with upstream/config/owin_ftoption.h and owin_ftmodule.h (TrueType and CFF fonts, the auto-hinter, the smooth
-# rasterizer; no zlib, PNG, or other formats). HarfBuzz is built from upstream/config/owin_harfbuzz.cc: the shaper and the raster
-# library, without the platform shapers, and with no libpng (bitmap emoji are decoded by Owin). Both are compiled once,
+# FreeType is built with upstream/config/fontlibs_ftoption.h and fontlibs_ftmodule.h (TrueType and CFF fonts, the auto-hinter, the smooth
+# rasterizer; no zlib, PNG, or other formats). HarfBuzz is built from upstream/config/fontlibs_harfbuzz.cc: the shaper and the raster
+# library, without the platform shapers, and with no libpng (PNG bitmap emoji are for the caller to decode). Both are compiled once,
 # position-independent, with -ffunction-sections and -fdata-sections so the programs' linker drops what they don't use.
 # HarfBuzz needs no C++ runtime (no exceptions, RTTI or thread-safe statics): the script checks it.
 # Environment:
@@ -47,7 +47,7 @@ HB="$UP/harfbuzz/src"
 COMMON=(-O2 -fPIC -ffunction-sections -fdata-sections -fvisibility=hidden)
 FT_FLAGS=(
     "${COMMON[@]}" -DFT2_BUILD_LIBRARY
-    '-DFT_CONFIG_OPTIONS_H=<owin_ftoption.h>' '-DFT_CONFIG_MODULES_H=<owin_ftmodule.h>'
+    '-DFT_CONFIG_OPTIONS_H=<fontlibs_ftoption.h>' '-DFT_CONFIG_MODULES_H=<fontlibs_ftmodule.h>'
     -I"$UP/config" -I"$FT/include" -I"$FT/src"
 )
 HB_FLAGS=(
@@ -72,7 +72,7 @@ FT_SOURCES=(
     "$FT/src/truetype/truetype.c" "$FT/src/cff/cff.c" "$FT/src/sfnt/sfnt.c" "$FT/src/psaux/psaux.c" "$FT/src/psnames/psnames.c"
     "$FT/src/pshinter/pshinter.c" "$FT/src/smooth/smooth.c" "$FT/src/autofit/autofit.c"
 )
-HB_SOURCES=("$UP/config/owin_harfbuzz.cc")
+HB_SOURCES=("$UP/config/fontlibs_harfbuzz.cc")
 
 rm -rf "$OBJ_DIR"
 mkdir -p "$OBJ_DIR/ft" "$OBJ_DIR/hb" "$LIB_DIR"
